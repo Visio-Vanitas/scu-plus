@@ -3,10 +3,23 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 pnpm package:safari:xcode --macos-only
 python3 - <<'PY'
-import pathlib, plistlib, subprocess, json, os
+import pathlib, plistlib, subprocess, json, os, re
 root = pathlib.Path('build/safari-xcode')
 projects = list(root.rglob('*.xcodeproj'))
 assert len(projects) == 1, f'Expected one Xcode project, found {len(projects)}'
+# The Apple converter may derive the final component from the app name.
+# Normalize generated target IDs before compiling, preserving target suffixes.
+pbx = projects[0] / 'project.pbxproj'
+project_text = pbx.read_text()
+ids = re.findall(r'PRODUCT_BUNDLE_IDENTIFIER = "([^";]+)";', project_text)
+assert ids, 'No generated bundle identifiers found'
+base = min(ids, key=len)
+assert all(value.startswith(base) for value in ids), 'Unexpected unrelated target identifiers'
+requested = os.environ.get('SAFARI_BUNDLE_ID', 'io.github.brotherhoodofscu.scuplus')
+project_text = re.sub(r'(PRODUCT_BUNDLE_IDENTIFIER = ")([^";]+)(";)',
+    lambda match: match[1] + requested + match[2][len(base):] + match[3], project_text)
+pbx.write_text(project_text)
+
 # The containing app and extension use only sandbox/network access. Fail if a
 # future Xcode template introduces capabilities requiring a dedicated profile.
 allowed = {'com.apple.security.app-sandbox', 'com.apple.security.network.client', 'com.apple.security.files.user-selected.read-only'}
