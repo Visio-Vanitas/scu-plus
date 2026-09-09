@@ -122,3 +122,11 @@ Safari 实机验收应记录浏览器版本、操作、结果和控制台错误�
 当前默认 bundle ID 为 `io.github.brotherhoodofscu.scuplus`，如需更换，应同步工作流中的 `SAFARI_BUNDLE_ID`。不要使用 Bugaoshan 的 bundle ID 或其专属 profile。这里的原生外壳使用 App Sandbox / Network Client 和 Xcode 模板默认的用户所选文件只读权限，不申请 App Groups 等受限能力，因此按 [Apple TN3125](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles) 的 Developer ID 模型不要求额外 profile。构建脚本遇到新的原生 entitlement 会停止，要求先评估能力及 provisioning，而不会静默丢弃它。
 
 GitHub 无法把 Bugaoshan 的 Secret 解密复制到新 fork。若原始材料已经丢失，需要从可用的钥匙串重新导出 Developer ID 身份，或重新准备签名证书及 API key；本工作流不会自动吊销原有证书。iOS/TestFlight 使用不同的证书、App 标识及 provisioning，本工作流当前不包含 iOS 分发。
+
+## 跟随上游发布
+
+`.github/workflows/safari-release-sync.yml` 只在个人分发仓库运行。默认分支须包含此工作流；当前使用 `codex/safari-ci-signing` 作为分发默认分支。每小时第 17 分钟检查上游最近 100 个 release，从 v2.3.3 起按版本顺序补齐未分发的稳定版本，每次一个。手动运行可指定一个已发布的 `vX.Y.Z` tag；草稿和 prerelease 不进入正式分发。
+
+工作流解析上游 tag 为固定 commit，校验 package 版本，取该 commit 的源码并仅补入 Safari 打包脚本与分发元数据。它不合并 beta 分支的功能代码。构建、签名、公证、发布分为不同任务，构建不读取 Apple Secrets，只有发布任务有 contents: write。通过全部验证后才在子仓库同步同名 tag、上传 DMG / SHA256SUMS 并发布 Release。发布说明记录上游 commit、打包脚本 commit 和构建链接。已有正式 Release 不覆盖，上游 tag 移动或来源不一致会停止。
+
+可选的 webhook 转发入口是 `repository_dispatch`，事件类型 `upstream-release`，payload 可携带 `tag`。调用方必须用有权向本分发仓库发送 dispatch 的 GitHub 凭据。GitHub 原始 release webhook 不能直接指向 dispatch API，需要验证 webhook 签名并转换事件的接收服务；当前未部署此服务，也未在主仓库添加 webhook。定时检查和手动运行不依赖 webhook 或上游 Secret。GitHub 的定时事件可能延迟，公共仓库长期无活动时可能暂停，维护者应检查 Actions 状态。
