@@ -1,0 +1,174 @@
+name: Sync upstream Safari TestFlight
+
+on:
+  schedule:
+    - cron: '37 * * * *'
+  repository_dispatch:
+    types: [upstream-release-ios]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published upstream vX.Y.Z tag (empty: next missing release)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+concurrency:
+  group: safari-testflight
+  cancel-in-progress: false
+
+env:
+  SAFARI_BUNDLE_ID: io.github.brotherhoodofscu.scuplus
+  RELEASE_CHANNEL: testflight
+
+jobs:
+  resolve:
+    if: github.repository == 'Visio-Vanitas/scu-plus' && (github.event_name == 'workflow_dispatch' || vars.IOS_TESTFLIGHT_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.release.outputs.build }}
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.release.outputs.sha }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/safari-release-sync.py resolve
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.build == 'true'
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: The-Brotherhood-of-SCU/scu-plus
+          ref: ${{ needs.resolve.outputs.sha }}
+          path: source
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare Safari packaging without merging fork application code
+        env:
+          EXPECTED_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          cp scripts/package-safari-xcode.sh scripts/build-safari-ios.sh source/scripts/
+          python3 - <<'PYTHON'
+          import json, os, pathlib
+          p = pathlib.Path('source/package.json')
+          data = json.loads(p.read_text())
+          assert data['version'] == os.environ['EXPECTED_VERSION'], 'Tag/package version mismatch'
+          data['scripts']['build:safari'] = 'plasmo build --target=safari-mv3 --zip'
+          data['scripts']['package:safari:xcode'] = 'bash scripts/package-safari-xcode.sh'
+          data['checkForUpdateLink'] = 'https://api.github.com/repos/Visio-Vanitas/scu-plus/releases/latest'
+          data['download'] = 'https://github.com/Visio-Vanitas/scu-plus/releases'
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+          PYTHON
+      - run: pnpm install --frozen-lockfile
+        working-directory: source
+      - name: Build iOS archive from pinned upstream source
+        run: bash scripts/build-safari-ios.sh
+        working-directory: source
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-${{ github.run_id }}
+          path: |
+            source/build/scu-plus-safari-ios-unsigned.zip
+            source/build/safari-mv3-prod.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  testflight:
+    needs: [resolve, build]
+    if: needs.resolve.outputs.build == 'true' && vars.IOS_TESTFLIGHT_ENABLED == 'true'
+    runs-on: macos-15
+    timeout-minutes: 75
+    permissions:
+      contents: write
+    env:
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      TESTFLIGHT_BETA_GROUP_IDS: ${{ vars.TESTFLIGHT_BETA_GROUP_IDS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-unsigned-${{ github.run_id }}
+          path: ${{ runner.temp }}/unsigned
+      - name: Install iOS signing material
+        env:
+          P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+          APP_PROFILE: ${{ secrets.IOS_APP_STORE_PROFILE_BASE64 }}
+          EXT_PROFILE: ${{ secrets.IOS_EXTENSION_APP_STORE_PROFILE_BASE64 }}
+          API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          : "${P12_BASE64:?Missing iOS P12}"
+          : "${P12_PASSWORD:?Missing iOS P12 password}"
+          : "${APP_PROFILE:?Missing app profile}"
+          : "${EXT_PROFILE:?Missing extension profile}"
+          : "${API_PRIVATE_KEY:?Missing API key}"
+          : "${TESTFLIGHT_BETA_GROUP_IDS:?Missing TestFlight groups}"
+          umask 077
+          mkdir -p "$RUNNER_TEMP/ios-signing"
+          printf '%s' "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/ios-signing/identity.p12"
+          printf '%s' "$APP_PROFILE" | base64 --decode > "$RUNNER_TEMP/ios-signing/app.mobileprovision"
+          printf '%s' "$EXT_PROFILE" | base64 --decode > "$RUNNER_TEMP/ios-signing/extension.mobileprovision"
+          printf '%s' "$API_PRIVATE_KEY" > "$RUNNER_TEMP/ios-signing/AuthKey_${APPLE_API_KEY_ID}.p8"
+          KEYCHAIN_PATH="$RUNNER_TEMP/ios-signing/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/ios-signing/identity.p12" -k "$KEYCHAIN_PATH" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/xcodebuild
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          python3 scripts/ios-export-options.py
+      - name: Export signed iOS archive
+        run: |
+          set -euo pipefail
+          ditto -x -k "$RUNNER_TEMP/unsigned/scu-plus-safari-ios-unsigned.zip" "$RUNNER_TEMP"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/safari-ios.xcarchive" -exportPath "$RUNNER_TEMP/ios-export" -exportOptionsPlist "$RUNNER_TEMP/ios-export-options.plist"
+      - name: Upload and assign TestFlight build
+        env:
+          API_PRIVATE_KEYS_DIR: ${{ runner.temp }}/ios-signing
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          ipas=("$RUNNER_TEMP/ios-export/"*.ipa)
+          [[ ${#ipas[@]} -eq 1 ]]
+          xcrun altool --upload-app --type ios --file "${ipas[0]}" --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER_ID"
+          printf '%s\n' 'Test Safari extension activation, campus pages, settings, avatar selection, and timetable export on iPhone and iPad.' > "$RUNNER_TEMP/whats-new.txt"
+          python3 scripts/app_store_connect.py --key "$API_PRIVATE_KEYS_DIR/AuthKey_${APPLE_API_KEY_ID}.p8" --key-id "$APPLE_API_KEY_ID" --issuer-id "$APPLE_API_ISSUER_ID" publish --bundle-id "$SAFARI_BUNDLE_ID" --version "$VERSION" --build-number "$GITHUB_RUN_NUMBER" --group-ids "$TESTFLIGHT_BETA_GROUP_IDS" --whats-new-file "$RUNNER_TEMP/whats-new.txt"
+      - name: Record submission (not review approval)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          SOURCE_SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/testflight/$TAG" -f "sha=$SOURCE_SHA"
+          echo 'TestFlight build processed and submitted to the configured groups. External review approval and an enabled public link must be checked in App Store Connect.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary signing files
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/ios-signing/signing.keychain-db" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/ios-signing"

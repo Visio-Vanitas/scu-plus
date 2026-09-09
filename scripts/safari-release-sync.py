@@ -46,6 +46,11 @@ def resolve():
                     and version(r['tag_name']) >= (2, 3, 3)]
         releases.sort(key=lambda r: version(r['tag_name']))
     existing = api(f'repos/{DOWNSTREAM}/releases?per_page=100')
+    if os.environ.get('RELEASE_CHANNEL') == 'testflight':
+        markers = api(f'repos/{DOWNSTREAM}/git/matching-refs/tags/testflight/')
+        completed = {m['ref'].removeprefix('refs/tags/testflight/') for m in markers}
+        releases = [r for r in releases if r['tag_name'] not in completed]
+        existing = []
     for release in releases:
         if release['draft'] or release['prerelease']:
             continue

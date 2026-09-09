@@ -130,3 +130,17 @@ GitHub 无法把 Bugaoshan 的 Secret 解密复制到新 fork。若原始材料�
 工作流解析上游 tag 为固定 commit，校验 package 版本，取该 commit 的源码并仅补入 Safari 打包脚本与分发元数据。它不合并 beta 分支的功能代码。构建、签名、公证、发布分为不同任务，构建不读取 Apple Secrets，只有发布任务有 contents: write。通过全部验证后才在子仓库同步同名 tag、上传 DMG / SHA256SUMS 并发布 Release。发布说明记录上游 commit、打包脚本 commit 和构建链接。已有正式 Release 不覆盖，上游 tag 移动或来源不一致会停止。
 
 可选的 webhook 转发入口是 `repository_dispatch`，事件类型 `upstream-release`，payload 可携带 `tag`。调用方必须用有权向本分发仓库发送 dispatch 的 GitHub 凭据。GitHub 原始 release webhook 不能直接指向 dispatch API，需要验证 webhook 签名并转换事件的接收服务；当前未部署此服务，也未在主仓库添加 webhook。定时检查和手动运行不依赖 webhook 或上游 Secret。GitHub 的定时事件可能延迟，公共仓库长期无活动时可能暂停，维护者应检查 Actions 状态。
+
+## iOS TestFlight
+
+子仓库的 `safari-testflight.yml` 参考 Bugaoshan 的独立 archive / 签名上传 / 测试组及 Beta App Review 分发机制。默认关闭上传；手动运行可先验证无凭据 iOS 构建。上游正式 release tag 对应的源码固定到 commit，主 App 使用 `io.github.brotherhoodofscu.scuplus`，扩展使用 `io.github.brotherhoodofscu.scuplus.Extension`。原生打包使用系统 HTTPS，不引入自定义加密，Info.plist 声明不使用非豁免加密；如后续增加加密功能须重新评估。
+
+启用前需要：
+- Apple Developer 协议有效，App Store Connect 已创建对应 iOS App。
+- `IOS_DISTRIBUTION_P12_BASE64`、`IOS_DISTRIBUTION_P12_PASSWORD`：Apple Distribution 身份及导出密码。
+- `IOS_APP_STORE_PROFILE_BASE64`、`IOS_EXTENSION_APP_STORE_PROFILE_BASE64`：上述两个 Bundle ID 各自的 App Store 分发描述文件。
+- 已有的 `APPLE_API_*` Secrets 对该 App 具备上传及 TestFlight 管理权限。
+- `TESTFLIGHT_BETA_GROUP_IDS` 仓库变量：SCU Plus 自己的测试组 ID，不能使用 Bugaoshan 的组。
+- 测试说明、反馈邮箱、审核联系人及必要的测试访问方式已在 App Store Connect 填好。
+
+最后设置 `IOS_TESTFLIGHT_ENABLED=true`，每小时第 37 分钟同步上游未提交的稳定版本。成功标记 `testflight/vX.Y.Z` 表示构建已处理并提交至组/审核，不表示 Apple 已批准。公测必须通过相应审核并启用外部组公开链接，才能把该链接作为可用邀测链接提供。当前尚未配置 iOS 证书、profiles、App 或测试组，不提供虚构链接。
