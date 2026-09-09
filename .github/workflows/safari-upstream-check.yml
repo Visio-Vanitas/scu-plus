@@ -1,0 +1,26 @@
+name: Verify minimal Safari upstream PR
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/safari-upstream
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --frozen-lockfile
+      - run: node --test tests/safari-update.test.mjs
+      - run: python3 .github/generate_release_notes.py
+      - run: pnpm build
+      - run: pnpm build --target=firefox-mv3
+      - run: pnpm build:safari
