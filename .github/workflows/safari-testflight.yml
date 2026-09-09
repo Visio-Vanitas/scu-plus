@@ -2,7 +2,7 @@ name: Sync upstream Safari TestFlight
 
 on:
   schedule:
-    - cron: '37 * * * *'
+    - cron: '7,22,37,52 * * * *'
   repository_dispatch:
     types: [upstream-release-ios]
   workflow_dispatch:
