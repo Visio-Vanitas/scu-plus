@@ -26,6 +26,7 @@ concurrency:
 env:
   SAFARI_BUNDLE_ID: io.github.brotherhoodofscu.scuplus
   RELEASE_CHANNEL: testflight
+  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
 
 jobs:
   resolve:
