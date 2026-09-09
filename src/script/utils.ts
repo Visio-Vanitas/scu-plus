@@ -28,7 +28,7 @@ async function checkVersion () : Promise<UpdateCheckInfo>{
         // 从 release 附件中找对应浏览器的 zip 包，下载链接加 gh-proxy 前缀加速；找不到附件则回退到 release 页面
         const assets: { name?: string; browser_download_url?: string }[] = Array.isArray(release.assets) ? release.assets : [];
         const zipAssets = assets.filter(a => a?.browser_download_url?.endsWith(".zip"));
-        const zipAsset = zipAssets.find(a => a.name?.includes(process.env.PLASMO_BROWSER)) ?? zipAssets[0];
+        const zipAsset = zipAssets.find(a => a.name?.startsWith(`${process.env.PLASMO_BROWSER}-mv3-prod`));
         const downloadUrl = zipAsset
             ? pkgMessage.downloadProxyPrefix + zipAsset.browser_download_url
             : release.html_url ?? pkgMessage.download;

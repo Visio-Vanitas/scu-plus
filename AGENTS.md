@@ -5,7 +5,8 @@
 - This is a Plasmo 0.90.5 browser extension. Plasmo generates manifests and registers content scripts; extension metadata belongs in `package.json` under `manifest`, not in a hand-written manifest.
 - Use Node.js `>=22.13 <23` and pnpm 11.18.0. Install dependencies with `pnpm install --frozen-lockfile`; `pnpm-workspace.yaml` explicitly allows the native dependency build scripts Plasmo needs.
 - Use `pnpm dev` for hot reload, `pnpm build` for the Chromium production build, and `pnpm build:firefox:amo` for the reproducible Firefox MV3 ZIP.
-- There are no repository test, lint, or typecheck scripts. A production build is the main executable verification.
+- `pnpm test:compat` runs focused compatibility regressions. There are no lint or typecheck scripts; production builds remain required executable verification.
+- `pnpm build:safari` produces the unsigned Safari MV3 directory and ZIP. `pnpm package:safari:xcode` requires full Xcode and generates a native project without overwriting an existing one. See `SAFARI_BUILD.md` for installation and runtime acceptance checks.
 - Keep `tsconfig.json` extending `./node_modules/plasmo/templates/tsconfig.base.json`. The package-style path works in `tsc` but fails in Plasmo's older Parcel resolver under pnpm 11, producing misleading random local-import errors.
 - `.plasmo/`, `.parcel-cache/`, and `build/` are generated and ignored; do not edit or submit them as source.
 

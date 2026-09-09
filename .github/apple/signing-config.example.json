@@ -1,0 +1,15 @@
+{
+  "bundleId": "io.github.brotherhoodofscu.scuplus",
+  "variables": {
+    "APPLE_SIGNING_ENABLED": "false",
+    "APPLE_TEAM_ID": "",
+    "MACOS_SIGNING_IDENTITY": ""
+  },
+  "requiredSecretNames": [
+    "MACOS_DEVELOPER_ID_P12_BASE64",
+    "MACOS_DEVELOPER_ID_P12_PASSWORD",
+    "APPLE_API_KEY_ID",
+    "APPLE_API_ISSUER_ID",
+    "APPLE_API_PRIVATE_KEY"
+  ]
+}

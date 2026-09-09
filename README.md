@@ -80,7 +80,13 @@
 | 2️⃣ **访问扩展页面** | 地址栏输入 `about:debugging#/runtime/this-firefox` |
 | 3️⃣ **加载插件** | 点击「临时载入附加组件」，选择 ZIP 文件 |
 
-> 💡 **提示**：支持 Chrome、Edge 等 Chromium 系浏览器及 Firefox，暂不支持 Safari。
+### Safari 浏览器（开发测试）
+
+使用 `pnpm build:safari` 生成 `build/safari-mv3-prod.zip`，在 macOS Safari 的“设置 → 开发者 → 添加临时扩展”中加载，并授予学校站点访问权限。临时扩展会在退出 Safari 或 24 小时后移除。
+
+Safari ZIP 不等于已签名 App，iPhone / iPad 不能直接安装。构建、Xcode 打包及功能验收要求见 [Safari 构建与验证](./SAFARI_BUILD.md)。
+
+> 💡 **提示**：Chrome、Edge 和 Firefox 沿用上方安装方式；Safari 目前提供开发测试构建，完整功能仍需按验收表实机确认。
 > 📘 详细图文版请参考 [小白安装教程](https://github.com/The-Brotherhood-of-SCU/scu-plus/wiki/安装)。
 
 ---

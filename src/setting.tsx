@@ -661,7 +661,7 @@ function DataSettingFragment({ isDirty, setIsDirty, setAccent, setDarkMode }: { 
         <Field label="将 '四川大学教务管理系统登录' 重定向到 '统一登陆'" tip="统一登陆的有效期更长，建议开启">
           <ScuSwitch checked={setting.redirectLoginSwitch} onChange={(v) => handleFormChange({ redirectLoginSwitch: v })} />
         </Field>
-        <Field label="跳过两步验证（2FA）" tip="开启后将自动跳过统一认证的两步验证（短信/邮件验证码）">
+        <Field label="跳过两步验证（2FA）" tip="尝试跳过统一认证的两步验证。若服务端返回 505 / 2factor-pending，本标签页本次会话会停用此功能，请重新登录并完成验证">
           <ScuSwitch checked={setting.skip2FASwitch} onChange={(v) => handleFormChange({ skip2FASwitch: v })} />
         </Field>
         <Field label="禁止修改密码弹窗开关" tip="开启后将自动关闭讨厌的修改密码弹窗">

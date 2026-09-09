@@ -45,6 +45,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check browser compatibility regressions
+        run: pnpm test:compat
         
       - name: Build chrome plugin
         run: pnpm build --zip
@@ -52,6 +55,9 @@ jobs:
       - name: Build firefox plugin
         if: env.BUILD_FIREFOX == 'true'
         run: pnpm build --zip --target=firefox-mv3
+
+      - name: Build Safari web extension (unsigned)
+        run: pnpm build:safari
 
       - name: Create Release & Upload Assets
         uses: softprops/action-gh-release@v2
@@ -65,5 +71,6 @@ jobs:
           files: |
             ./build/chrome-mv3-prod.zip
             ./build/firefox-mv3-prod.zip
+            ./build/safari-mv3-prod.zip
           draft: false
           prerelease: false

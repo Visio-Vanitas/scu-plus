@@ -23,8 +23,12 @@ const RULES: Array<{ url: string; modify(json: any): boolean }> = [
   },
 ];
 
+const FAILURE_KEY = "scu-plus:skip2fa-rejected";
 function isEnabled(): boolean {
-  return document.documentElement.dataset.__scu_skip2fa === "true";
+  try {
+    if (sessionStorage.getItem(FAILURE_KEY) === "true") return false;
+  } catch { /* Storage can be unavailable; the document flag still applies. */ }
+  return document.documentElement?.dataset.__scu_skip2fa === "true";
 }
 
 function findRule(url: string) {
@@ -38,11 +42,11 @@ function applyModify(json: any, url: string): boolean {
 }
 
 // ── 505/2factor-pending 检测 ──────────────────────────────────────
-// 教务处高峰期可能返回 505 错误，此时跳2FA与系统不兼容，需要提示用户关闭
+// 服务端明确要求完成两步验证；不能由此判断服务器负载或浏览器故障。
 let _notified505 = false;
 
 function is505PendingError(json: any): boolean {
-  return json?.code === "505" && json?.data?.info === "2factor-pending";
+  return String(json?.code) === "505" && json?.data?.info === "2factor-pending";
 }
 
 function isSpLogged(url: string): boolean {
@@ -61,6 +65,8 @@ function check505Error(json: any, url: string): void {
 function show505Notification(): void {
   // 自动关闭跳2FA，避免继续拦截导致连锁问题
   document.documentElement.dataset.__scu_skip2fa = "false";
+  // 保留到同一标签页的后续导航，避免重新登录时再次启用并陷入循环。
+  try { sessionStorage.setItem(FAILURE_KEY, "true"); } catch { /* Keep the document fallback. */ }
 
   const overlay = document.createElement("div");
   overlay.style.cssText = [
@@ -85,8 +91,8 @@ function show505Notification(): void {
     '  <span>跳2FA提示</span>',
     '</div>',
     '<div style="margin:12px 0 0;font-size:13px;color:#57564f;line-height:1.6;">',
-    '  出现 505 错误为教务系统高峰期使用跳2FA的已知异常，',
-    '  已自动关闭跳2FA，请重新登陆。',
+    '  认证服务返回 505 / 2factor-pending，要求完成两步验证。',
+    '  本标签页本次会话已停用跳2FA，请重新登录并完成验证。若仍出现此提示，请在设置中关闭跳过两步验证。',
     '</div>',
     '<div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px;">',
     '  <button id="scu-505-ok" style="',
@@ -156,7 +162,7 @@ function initSkip2Fa() {
     password?: string | null
   ) {
     (this as any).__scu_skip_url = typeof url === "string" ? url : (url as URL).href;
-    return origOpen.call(this, method, url, async as boolean, username, password);
+    return origOpen.call(this, method, url, async ?? true, username, password);
   };
 
   // responseText getter —— 重写 prototype getter，页面任何时机读取都能拿到修改后的值
