@@ -139,8 +139,8 @@ GitHub 无法把 Bugaoshan 的 Secret 解密复制到新 fork。若原始材料�
 - Apple Developer 协议有效，App Store Connect 已创建对应 iOS App。
 - `IOS_DISTRIBUTION_P12_BASE64`、`IOS_DISTRIBUTION_P12_PASSWORD`：Apple Distribution 身份及导出密码。
 - `IOS_APP_STORE_PROFILE_BASE64`、`IOS_EXTENSION_APP_STORE_PROFILE_BASE64`：上述两个 Bundle ID 各自的 App Store 分发描述文件。
-- 已有的 `APPLE_API_*` Secrets 对该 App 具备上传及 TestFlight 管理权限。
+- 独立的 `TESTFLIGHT_API_KEY_ID`、`TESTFLIGHT_API_ISSUER_ID`、`TESTFLIGHT_API_PRIVATE_KEY` Secrets：使用 App Manager 角色的团队 API 密钥完成上传和外部 TestFlight 管理。团队密钥权限覆盖团队所有 App；原 `APPLE_API_*` 继续供 macOS 公证使用。
 - `TESTFLIGHT_BETA_GROUP_IDS` 仓库变量：SCU Plus 自己的测试组 ID，不能使用 Bugaoshan 的组。
 - 测试说明、反馈邮箱、审核联系人及必要的测试访问方式已在 App Store Connect 填好。
 
-最后设置 `IOS_TESTFLIGHT_ENABLED=true`，每 15 分钟同步（每小时第 7、22、37、52 分钟）上游未提交的稳定版本。成功标记 `testflight/vX.Y.Z` 表示构建已处理并提交至组/审核，不表示 Apple 已批准。公测必须通过相应审核并启用外部组公开链接，才能把该链接作为可用邀测链接提供。当前尚未配置 iOS 证书、profiles、App 或测试组，不提供虚构链接。
+最后设置 `IOS_TESTFLIGHT_ENABLED=true`，每 15 分钟同步（每小时第 7、22、37、52 分钟）上游未提交的稳定版本。成功标记 `testflight/vX.Y.Z` 表示构建已处理并提交至组/审核，不表示 Apple 已批准。公测必须通过相应审核并启用外部组公开链接，才能把该链接作为可用邀测链接提供。首次 iOS 构建 2.3.3（3）已完成签名、上传并提交 Beta 审核。公开邀测链接为 https://testflight.apple.com/join/VfB4puVJ；能否安装以 Apple 当前审核和测试状态为准。

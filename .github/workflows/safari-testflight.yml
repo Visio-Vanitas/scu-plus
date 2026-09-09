@@ -106,8 +106,8 @@ jobs:
       contents: write
     env:
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-      APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      APPLE_API_KEY_ID: ${{ secrets.TESTFLIGHT_API_KEY_ID }}
+      APPLE_API_ISSUER_ID: ${{ secrets.TESTFLIGHT_API_ISSUER_ID }}
       TESTFLIGHT_BETA_GROUP_IDS: ${{ vars.TESTFLIGHT_BETA_GROUP_IDS }}
     steps:
       - uses: actions/checkout@v4
@@ -123,7 +123,7 @@ jobs:
           P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
           APP_PROFILE: ${{ secrets.IOS_APP_STORE_PROFILE_BASE64 }}
           EXT_PROFILE: ${{ secrets.IOS_EXTENSION_APP_STORE_PROFILE_BASE64 }}
-          API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          API_PRIVATE_KEY: ${{ secrets.TESTFLIGHT_API_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           : "${P12_BASE64:?Missing iOS P12}"
