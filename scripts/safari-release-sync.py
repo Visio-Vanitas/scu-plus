@@ -92,13 +92,15 @@ def publish():
              f'Build: https://github.com/{DOWNSTREAM}/actions/runs/{os.environ["GITHUB_RUN_ID"]}\n\n'
              'Download the DMG, drag SCU Plus to Applications, then enable it in Safari Settings → Extensions.\n'
              'The macOS DMG is Developer ID signed and Apple notarized.\n\n'
+             'iOS/iPadOS: [Install with TestFlight](https://testflight.apple.com/join/VfB4puVJ) '
+             '(availability depends on Apple review and the active beta).\n\n'
              '**不建议任何不了解 IPA 的同学下载或尝试安装。** 普通测试者请使用 TestFlight。\n\n'
-             'iOS/iPadOS: `scu-plus-safari-ios-unsigned.ipa` is an unsigned Release build for technical testers. '
+             'Developer testing/debugging artifact: `scu-plus-safari-ios-unsigned.ipa` is an unsigned Release build for technical testers. '
              'It cannot be installed as downloaded. Re-sign both the containing app and Safari extension '
              'with your own identity and matching provisioning profiles before installation; then enable the extension in Safari settings. '
              'It includes no certificate, private key, provisioning profile or debug entitlement. '
              'For native breakpoint debugging, build the source with Xcode.\n\n'
-             'TestFlight: https://testflight.apple.com/join/VfB4puVJ (availability depends on Apple review and the active beta).\n')
+)
     Path('release-notes.md').write_text(notes)
     existing = api(f'repos/{DOWNSTREAM}/releases?per_page=100')
     release = next((r for r in existing if r['tag_name'] == tag), None)
