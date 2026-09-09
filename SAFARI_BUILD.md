@@ -135,7 +135,7 @@ GitHub 无法把 Bugaoshan 的 Secret 解密复制到新 fork。若原始材料�
 
 > **不建议任何不了解 IPA 的同学下载或尝试安装。** 普通测试者请使用 TestFlight。
 
-分发仓库的每个新 Safari Release 同时提供 `scu-plus-safari-ios-unsigned.ipa`，从同一上游 tag 的固定 commit 构建。`SHA256SUMS` 包含 DMG 和 IPA 的校验值；v2.3.3 后补的 IPA 使用独立的 `.ipa.sha256` 文件，保留原 DMG 校验文件。
+分发仓库的每个新 Safari Release 同时提供[未签名 IPA](https://github.com/Visio-Vanitas/scu-plus/releases/latest/download/scu-plus-safari-ios-unsigned.ipa)，从同一上游 tag 的固定 commit 构建。`SHA256SUMS` 包含 DMG 和 IPA 的校验值；v2.3.3 后补的 IPA 使用独立的 `.ipa.sha256` 文件，保留原 DMG 校验文件。
 
 IPA 包含 `Payload/SCU Plus.app` 及其 Safari 扩展。打包脚本从 archive 的副本移除主应用和扩展的临时签名及描述文件，不读取 Apple Secrets；原 archive 仍可用于 TestFlight 签名导出。
 
