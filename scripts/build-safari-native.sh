@@ -9,7 +9,7 @@ projects = list(root.rglob('*.xcodeproj'))
 assert len(projects) == 1, f'Expected one Xcode project, found {len(projects)}'
 # The containing app and extension use only sandbox/network access. Fail if a
 # future Xcode template introduces capabilities requiring a dedicated profile.
-allowed = {'com.apple.security.app-sandbox', 'com.apple.security.network.client'}
+allowed = {'com.apple.security.app-sandbox', 'com.apple.security.network.client', 'com.apple.security.files.user-selected.read-only'}
 for path in root.rglob('*.entitlements'):
     data = plistlib.loads(path.read_bytes())
     assert set(data) <= allowed, f'Review new native capabilities before signing: {path}: {list(data)}'

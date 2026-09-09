@@ -119,6 +119,6 @@ Safari 实机验收应记录浏览器版本、操作、结果和控制台错误�
 | `MACOS_SIGNING_IDENTITY` | 完整的 `Developer ID Application: … (TEAMID)` 证书名称 |
 | `APPLE_SIGNING_ENABLED` | 所有材料就绪后设为 `true`；缺省或 `false` 时明确跳过签名 |
 
-当前默认 bundle ID 为 `io.github.brotherhoodofscu.scuplus`，如需更换，应同步工作流中的 `SAFARI_BUNDLE_ID`。不要使用 Bugaoshan 的 bundle ID 或其专属 profile。这里的原生外壳只使用 App Sandbox / Network Client，不申请 App Groups 等受限能力，因此按 [Apple TN3125](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles) 的 Developer ID 模型不要求额外 profile。构建脚本遇到新的原生 entitlement 会停止，要求先评估能力及 provisioning，而不会静默丢弃它。
+当前默认 bundle ID 为 `io.github.brotherhoodofscu.scuplus`，如需更换，应同步工作流中的 `SAFARI_BUNDLE_ID`。不要使用 Bugaoshan 的 bundle ID 或其专属 profile。这里的原生外壳使用 App Sandbox / Network Client 和 Xcode 模板默认的用户所选文件只读权限，不申请 App Groups 等受限能力，因此按 [Apple TN3125](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles) 的 Developer ID 模型不要求额外 profile。构建脚本遇到新的原生 entitlement 会停止，要求先评估能力及 provisioning，而不会静默丢弃它。
 
 GitHub 无法把 Bugaoshan 的 Secret 解密复制到新 fork。若原始材料已经丢失，需要从可用的钥匙串重新导出 Developer ID 身份，或重新准备签名证书及 API key；本工作流不会自动吊销原有证书。iOS/TestFlight 使用不同的证书、App 标识及 provisioning，本工作流当前不包含 iOS 分发。
