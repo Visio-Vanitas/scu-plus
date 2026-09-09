@@ -11,6 +11,11 @@ on:
         description: 'Published upstream vX.Y.Z tag (empty: next missing release)'
         required: false
         type: string
+      upload_only:
+        description: 'Upload to TestFlight without assigning groups or submitting review'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -93,7 +98,7 @@ jobs:
 
   testflight:
     needs: [resolve, build]
-    if: needs.resolve.outputs.build == 'true' && vars.IOS_TESTFLIGHT_ENABLED == 'true'
+    if: needs.resolve.outputs.build == 'true' && (github.event_name == 'workflow_dispatch' || vars.IOS_TESTFLIGHT_ENABLED == 'true')
     runs-on: macos-15
     timeout-minutes: 75
     permissions:
@@ -125,7 +130,6 @@ jobs:
           : "${APP_PROFILE:?Missing app profile}"
           : "${EXT_PROFILE:?Missing extension profile}"
           : "${API_PRIVATE_KEY:?Missing API key}"
-          : "${TESTFLIGHT_BETA_GROUP_IDS:?Missing TestFlight groups}"
           umask 077
           mkdir -p "$RUNNER_TEMP/ios-signing"
           printf '%s' "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/ios-signing/identity.p12"
@@ -147,7 +151,7 @@ jobs:
           set -euo pipefail
           ditto -x -k "$RUNNER_TEMP/unsigned/scu-plus-safari-ios-unsigned.zip" "$RUNNER_TEMP"
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/safari-ios.xcarchive" -exportPath "$RUNNER_TEMP/ios-export" -exportOptionsPlist "$RUNNER_TEMP/ios-export-options.plist"
-      - name: Upload and assign TestFlight build
+      - name: Upload TestFlight build
         env:
           API_PRIVATE_KEYS_DIR: ${{ runner.temp }}/ios-signing
           VERSION: ${{ needs.resolve.outputs.version }}
@@ -157,9 +161,18 @@ jobs:
           ipas=("$RUNNER_TEMP/ios-export/"*.ipa)
           [[ ${#ipas[@]} -eq 1 ]]
           xcrun altool --upload-app --type ios --file "${ipas[0]}" --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER_ID"
+      - name: Assign build and submit Beta App Review
+        if: inputs.upload_only != true
+        env:
+          API_PRIVATE_KEYS_DIR: ${{ runner.temp }}/ios-signing
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          : "${TESTFLIGHT_BETA_GROUP_IDS:?Configure an external TestFlight group before submitting review}"
           printf '%s\n' 'Test Safari extension activation, campus pages, settings, avatar selection, and timetable export on iPhone and iPad.' > "$RUNNER_TEMP/whats-new.txt"
           python3 scripts/app_store_connect.py --key "$API_PRIVATE_KEYS_DIR/AuthKey_${APPLE_API_KEY_ID}.p8" --key-id "$APPLE_API_KEY_ID" --issuer-id "$APPLE_API_ISSUER_ID" publish --bundle-id "$SAFARI_BUNDLE_ID" --version "$VERSION" --build-number "$GITHUB_RUN_NUMBER" --group-ids "$TESTFLIGHT_BETA_GROUP_IDS" --whats-new-file "$RUNNER_TEMP/whats-new.txt"
       - name: Record submission (not review approval)
+        if: inputs.upload_only != true
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.resolve.outputs.tag }}
