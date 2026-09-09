@@ -127,9 +127,27 @@ GitHub 无法把 Bugaoshan 的 Secret 解密复制到新 fork。若原始材料�
 
 `.github/workflows/safari-release-sync.yml` 只在个人分发仓库运行。默认分支须包含此工作流；当前使用 `codex/safari-ci-signing` 作为分发默认分支。每 15 分钟检查（每小时第 2、17、32、47 分钟）上游最近 100 个 release，从 v2.3.3 起按版本顺序补齐未分发的稳定版本，每次一个。手动运行可指定一个已发布的 `vX.Y.Z` tag；草稿和 prerelease 不进入正式分发。
 
-工作流解析上游 tag 为固定 commit，校验 package 版本，取该 commit 的源码并仅补入 Safari 打包脚本与分发元数据。它不合并 beta 分支的功能代码。构建、签名、公证、发布分为不同任务，构建不读取 Apple Secrets，只有发布任务有 contents: write。通过全部验证后才在子仓库同步同名 tag、上传 DMG / SHA256SUMS 并发布 Release。发布说明记录上游 commit、打包脚本 commit 和构建链接。已有正式 Release 不覆盖，上游 tag 移动或来源不一致会停止。
+工作流解析上游 tag 为固定 commit，校验 package 版本，取该 commit 的源码并仅补入 Safari 打包脚本与分发元数据。它不合并 beta 分支的功能代码。构建、签名、公证、发布分为不同任务，构建不读取 Apple Secrets，只有发布任务有 contents: write。通过全部验证后才在子仓库同步同名 tag、上传已签名公证的 DMG、未签名 IPA 和 SHA256SUMS 并发布 Release。发布说明记录上游 commit、打包脚本 commit 和构建链接。已有正式 Release 不覆盖，上游 tag 移动或来源不一致会停止。
 
 可选的 webhook 转发入口是 `repository_dispatch`，事件类型 `upstream-release`，payload 可携带 `tag`。调用方必须用有权向本分发仓库发送 dispatch 的 GitHub 凭据。GitHub 原始 release webhook 不能直接指向 dispatch API，需要验证 webhook 签名并转换事件的接收服务；当前未部署此服务，也未在主仓库添加 webhook。定时检查和手动运行不依赖 webhook 或上游 Secret。GitHub 的定时事件可能延迟，公共仓库长期无活动时可能暂停，维护者应检查 Actions 状态。
+
+## iOS/iPadOS 未签名 IPA
+
+> **不建议任何不了解 IPA 的同学下载或尝试安装。** 普通测试者请使用 TestFlight。
+
+分发仓库的每个新 Safari Release 同时提供 `scu-plus-safari-ios-unsigned.ipa`，从同一上游 tag 的固定 commit 构建。`SHA256SUMS` 包含 DMG 和 IPA 的校验值；v2.3.3 后补的 IPA 使用独立的 `.ipa.sha256` 文件，保留原 DMG 校验文件。
+
+IPA 包含 `Payload/SCU Plus.app` 及其 Safari 扩展。打包脚本从 archive 的副本移除主应用和扩展的临时签名及描述文件，不读取 Apple Secrets；原 archive 仍可用于 TestFlight 签名导出。
+
+此文件面向有技术背景的测试者，不能直接安装到普通 iPhone/iPad。需要使用自己的签名身份和匹配的描述文件同时重签主应用与 `.appex`，必要时调整两者 Bundle ID，然后安装并在 Safari 设置中启用扩展、授予网站权限。重签工具必须保留 Safari 扩展，具体账号和设备限制取决于使用的分发方式。仓库不提供私钥或可供公众直接安装的 iOS 签名。
+
+这是 Release 构建，不附带 `get-task-allow` 调试权限。需要原生断点调试时，应从对应 tag 生成 Xcode 工程并以自己的开发签名运行；重签 IPA 不等于完成 iOS 真机验收。
+
+本地从已构建的 archive 打包：
+
+```bash
+python3 scripts/package-unsigned-ipa.py build/safari-ios.xcarchive build/scu-plus-safari-ios-unsigned.ipa
+```
 
 ## iOS TestFlight
 

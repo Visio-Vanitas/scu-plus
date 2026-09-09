@@ -90,6 +90,59 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  build-ios:
+    needs: resolve
+    if: needs.resolve.outputs.build == 'true'
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: The-Brotherhood-of-SCU/scu-plus
+          ref: ${{ needs.resolve.outputs.sha }}
+          path: source
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare Safari packaging without merging fork application code
+        env:
+          EXPECTED_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          cp scripts/package-safari-xcode.sh scripts/build-safari-ios.sh source/scripts/
+          python3 - <<'PYTHON'
+          import json, os, pathlib
+          p = pathlib.Path('source/package.json')
+          data = json.loads(p.read_text())
+          assert data['version'] == os.environ['EXPECTED_VERSION'], 'Tag/package version mismatch'
+          data['scripts']['build:safari'] = 'plasmo build --target=safari-mv3 --zip'
+          data['scripts']['package:safari:xcode'] = 'bash scripts/package-safari-xcode.sh'
+          data['checkForUpdateLink'] = 'https://api.github.com/repos/Visio-Vanitas/scu-plus/releases/latest'
+          data['download'] = 'https://github.com/Visio-Vanitas/scu-plus/releases'
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+          PYTHON
+      - run: pnpm install --frozen-lockfile
+        working-directory: source
+      - name: Build Safari iOS app from pinned upstream source
+        run: bash scripts/build-safari-ios.sh
+        working-directory: source
+      - name: Package unsigned IPA for user re-signing
+        run: python3 scripts/package-unsigned-ipa.py source/build/safari-ios.xcarchive source/build/scu-plus-safari-ios-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sync-ios-unsigned-${{ github.run_id }}
+          path: source/build/scu-plus-safari-ios-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+
   sign:
     name: Developer ID sign and notarize
     needs: [resolve, build]
@@ -177,7 +230,7 @@ jobs:
           rm -rf "$RUNNER_TEMP/safari-signing"
 
   publish:
-    needs: [resolve, sign]
+    needs: [resolve, sign, build-ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -187,6 +240,10 @@ jobs:
         with:
           name: sync-signed-${{ github.run_id }}
           path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: sync-ios-unsigned-${{ github.run_id }}
+          path: release
       - name: Publish verified Safari assets under the upstream tag
         env:
           GH_TOKEN: ${{ github.token }}
@@ -194,5 +251,5 @@ jobs:
           UPSTREAM_SHA: ${{ needs.resolve.outputs.sha }}
           RELEASE_DIR: release
         run: |
-          (cd release && sha256sum scu-plus-safari-macos.dmg > SHA256SUMS)
+          (cd release && sha256sum scu-plus-safari-macos.dmg scu-plus-safari-ios-unsigned.ipa > SHA256SUMS)
           python3 scripts/safari-release-sync.py publish
